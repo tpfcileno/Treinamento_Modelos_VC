@@ -45,6 +45,9 @@ class Exp(BaseExp):
         self.val_ann = "instances_val2017.json"
         # name of annotation file for testing
         self.test_ann = "instances_test2017.json"
+        self.train_name = "train2017"
+        self.val_name = "val2017"
+        self.test_name = "test2017"
 
         # --------------- transform config ----------------- #
         # prob of applying mosaic aug
@@ -70,7 +73,7 @@ class Exp(BaseExp):
         # epoch number used for warmup
         self.warmup_epochs = 5
         # max training epoch
-        self.max_epoch = 300
+        self.max_epoch = 125
         # minimum learning rate during warmup
         self.warmup_lr = 0
         self.min_lr_ratio = 0.05
@@ -142,6 +145,7 @@ class Exp(BaseExp):
         return COCODataset(
             data_dir=self.data_dir,
             json_file=self.train_ann,
+            name=self.train_name,
             img_size=self.input_size,
             preproc=TrainTransform(
                 max_labels=50,
@@ -304,7 +308,7 @@ class Exp(BaseExp):
         return COCODataset(
             data_dir=self.data_dir,
             json_file=self.val_ann if not testdev else self.test_ann,
-            name="val2017" if not testdev else "test2017",
+            name=self.val_name if not testdev else self.test_name,
             img_size=self.test_size,
             preproc=ValTransform(legacy=legacy),
         )

@@ -14,6 +14,10 @@ from yolox.core import launch
 from yolox.exp import Exp, check_exp_value, get_exp
 from yolox.utils import configure_module, configure_nccl, configure_omp, get_num_devices
 
+#Alterações para integras dentro tools/utils.py
+
+from utils.noise_blur import enable_noise_blur
+
 
 def make_parser():
     parser = argparse.ArgumentParser("YOLOX train parser")
@@ -113,6 +117,9 @@ def main(exp: Exp, args):
     configure_nccl()
     configure_omp()
     cudnn.benchmark = True
+
+    #aplci blur nas imagens para impedir que o modelo aprenda ruido.
+    enable_noise_blur(exp, noise_class_name="ruido")
 
     trainer = exp.get_trainer(args)
     trainer.train()

@@ -19,3 +19,6 @@ YOLOX/YOLOX/datasets/*
 YOLOX/weights
 
 *.h5
+
+\MobIA_VC_Utils
+\YOLOX\YOLOX\inference_results

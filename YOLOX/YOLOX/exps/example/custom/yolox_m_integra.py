@@ -11,41 +11,48 @@ class Exp(MyExp):
         super(Exp, self).__init__()
 
         # ---------------- model config ---------------- #
-        # YOLOX-S  (depth=0.33, width=0.50)
-        self.depth = 0.33   # multiplicador de profundidade (nº de blocos/camadas do backbone+FPN); 0.33 = variante S
-        self.width = 0.50   # multiplicador de largura (nº de canais por camada); 0.50 = variante S
-        # nome do experimento: deriva do nome do arquivo (ex.: "yolox_s_vehicles"). Define a pasta de saída em YOLOX_outputs/
+        # YOLOX-M  (depth=0.67, width=0.75)
+        self.depth = 0.67   # multiplicador de profundidade (nº de blocos/camadas do backbone+FPN); 0.67 = variante M
+        self.width = 0.75   # multiplicador de largura (nº de canais por camada); 0.75 = variante M
+        # nome do experimento: deriva do nome do arquivo (ex.: "yolox_m_integra"). Define a pasta de saída em YOLOX_outputs/
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
         # 6 categorias (ids 0..5):
         #   0: Car (supercategory raiz)  1: bus  2: car  3: moto  4: truck  5: van
-        self.num_classes = 5   # nº de classes do dataset; precisa bater com as categorias dos JSONs COCO
+        self.num_classes = 7   # nº de classes do dataset; precisa bater com as categorias dos JSONs COCO
 
         # ---------------- dataset config ---------------- #
         # Layout esperado dentro de data_dir:
-        #   datasets/vehicles/
+        #   datasets/integra/
         #     annotations/
         #       instances_train.json
         #       instances_val.json
-        #     train2017/   (imagens de treino)
-        #     val2017/     (imagens de validacao)
-        self.data_dir = "datasets/vehicles_proto"        # raiz do dataset (relativa ao cwd do treino, /workspace/YOLOX)
+        #       instances_test.json
+        #     train/   (imagens de treino)
+        #     val/     (imagens de validacao)
+        #     test/    (imagens de teste)
+        self.data_dir = "datasets/integra"        # raiz do dataset (relativa ao cwd do treino, /workspace/YOLOX)
         self.train_ann = "instances_train.json"    # arquivo de anotações COCO de treino (dentro de data_dir/annotations/)
         self.val_ann = "instances_val.json"        # arquivo de anotações COCO de validação (dentro de data_dir/annotations/)
+        self.test_ann = "instances_test.json"
+        self.train_name = "train"
+        self.val_name = "val"
+        self.test_name = "test"
 
         # ---------------- training config ---------------- #
-        self.max_epoch = 300          # nº total de épocas de treino
-        self.data_num_workers = 4     # processos paralelos do DataLoader para carregar/aumentar imagens
+        self.max_epoch = 120          # nº total de épocas de treino
+        self.data_num_workers = 2     # processos paralelos do DataLoader para carregar/aumentar imagens
         self.eval_interval = 1        # roda avaliação no conjunto de val a cada N épocas
 
         # early stopping: para o treino apos N avaliacoes sem melhora do AP50:95 de val.
         # Com eval_interval=1, N equivale a epocas. 0 desativa.
-        self.early_stop_patience = 30
+        self.early_stop_patience = 40
         self.early_stop_min_delta = 0.0  # ganho minimo de AP para contar como melhora
 
         # input/test size (multiplos de 32)
         self.input_size = (640, 640)  # resolução (altura, largura) das imagens no treino
         self.test_size = (640, 640)   # resolução (altura, largura) das imagens na avaliação/inferência
+
 
         self.multiscale_range = 5     # variação de escala multi-resolução: input_size +/- 5*32 px por iteração
         self.mosaic_prob = 1.0        # probabilidade de aplicar augmentation Mosaic (junta 4 imagens); 1.0 = sempre

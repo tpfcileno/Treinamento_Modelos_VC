@@ -11,27 +11,33 @@ class Exp(MyExp):
         super(Exp, self).__init__()
 
         # ---------------- model config ---------------- #
-        # YOLOX-M  (depth=0.67, width=0.75)
-        self.depth = 0.67   # multiplicador de profundidade (nº de blocos/camadas do backbone+FPN); 0.67 = variante M
-        self.width = 0.75   # multiplicador de largura (nº de canais por camada); 0.75 = variante M
-        # nome do experimento: deriva do nome do arquivo (ex.: "yolox_m_vehicles"). Define a pasta de saída em YOLOX_outputs/
+        # YOLOX-L  (depth=1.0, width=1.0)
+        self.depth = 1.0   # multiplicador de profundidade (nº de blocos/camadas do backbone+FPN); 1.0 = variante L
+        self.width = 1.0   # multiplicador de largura (nº de canais por camada); 1.0 = variante L
+        # nome do experimento: deriva do nome do arquivo (ex.: "yolox_l_integra"). Define a pasta de saída em YOLOX_outputs/
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
-        # 6 categorias (ids 0..5):
-        #   0: Car (supercategory raiz)  1: bus  2: car  3: moto  4: truck  5: van
-        self.num_classes = 5   # nº de classes do dataset; precisa bater com as categorias dos JSONs COCO
+        # As categorias nos JSONs COCO sao: capacete, botas, pessoa,
+        # torso_reflexivo, calca, luvas e manga_longa.
+        self.num_classes = 8
 
         # ---------------- dataset config ---------------- #
         # Layout esperado dentro de data_dir:
-        #   datasets/vehicles/
+        #   datasets/integra/
         #     annotations/
         #       instances_train.json
         #       instances_val.json
-        #     train2017/   (imagens de treino)
-        #     val2017/     (imagens de validacao)
-        self.data_dir = "datasets/vehicles"        # raiz do dataset (relativa ao cwd do treino, /workspace/YOLOX)
+        #       instances_test.json
+        #     train/   (imagens de treino)
+        #     val/     (imagens de validacao)
+        #     test/    (imagens de teste)
+        self.data_dir = "datasets/integra"              # raiz do dataset (relativa ao cwd do treino, /workspace/YOLOX)
         self.train_ann = "instances_train.json"    # arquivo de anotações COCO de treino (dentro de data_dir/annotations/)
         self.val_ann = "instances_val.json"        # arquivo de anotações COCO de validação (dentro de data_dir/annotations/)
+        self.test_ann = "instances_test.json"      # arquivo de anotações COCO de teste
+        self.train_name = "train"
+        self.val_name = "val"
+        self.test_name = "test"
 
         # ---------------- training config ---------------- #
         self.max_epoch = 300          # nº total de épocas de treino
@@ -40,19 +46,14 @@ class Exp(MyExp):
 
         # early stopping: para o treino apos N avaliacoes sem melhora do AP50:95 de val.
         # Com eval_interval=1, N equivale a epocas. 0 desativa.
-        self.early_stop_patience = 20
+        self.early_stop_patience = 30
         self.early_stop_min_delta = 0.0  # ganho minimo de AP para contar como melhora
-
-        # input/test size (multiplos de 32)
-        self.input_size = (640, 640)  # resolução (altura, largura) das imagens no treino
-        self.test_size = (640, 640)   # resolução (altura, largura) das imagens na avaliação/inferência
-
 
         self.multiscale_range = 5     # variação de escala multi-resolução: input_size +/- 5*32 px por iteração
         self.mosaic_prob = 1.0        # probabilidade de aplicar augmentation Mosaic (junta 4 imagens); 1.0 = sempre
         self.mixup_prob = 1.0         # probabilidade de aplicar MixUp (sobrepõe 2 imagens); 1.0 = sempre
         self.hsv_prob = 1.0           # probabilidade de aplicar jitter de cor HSV (matiz/saturação/brilho)
-        self.flip_prob = 0.5          # probabilidade de espelhar a imagem horizontalmente
+        self.flip_prob = 0.0          # probabilidade de espelhar a imagem horizontalmente
         self.degrees = 10.0           # rotação aleatória máxima (graus) na augmentation afim
         self.translate = 0.1          # translação aleatória máxima (fração da imagem) na augmentation afim
         self.mosaic_scale = (0.1, 2.0)  # faixa de zoom aplicada às imagens do Mosaic (min, max)
@@ -71,3 +72,7 @@ class Exp(MyExp):
         self.save_history_ckpt = True   # salva checkpoint de cada época (não só o último/melhor)
         self.test_conf = 0.01         # limiar de confiança mínimo para considerar uma detecção na avaliação
         self.nmsthre = 0.50           # limiar de IoU do NMS (suprime caixas sobrepostas acima desse valor)
+
+        # input/test size (multiplos de 32)
+        self.input_size = (640, 640)  # resolução (altura, largura) das imagens no treino
+        self.test_size = (640, 640)   # resolução (altura, largura) das imagens na avaliação/inferência

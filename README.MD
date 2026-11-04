@@ -2,25 +2,25 @@
 
 #### YOLOX
 
-> **Layout do dataset (YOLOX):** o Exp `yolox_s_vehicles.py` espera o dataset em
-> `YOLOX/YOLOX/datasets/vehicles/` (no host), montado em
-> `/workspace/YOLOX/datasets/vehicles` no container, com as anotações COCO renomeadas
+> **Layout do dataset (YOLOX):** o Exp `yolox_s_integra.py` espera o dataset em
+> `YOLOX/YOLOX/datasets/integra/` (no host), montado em
+> `/workspace/YOLOX/datasets/integra` no container, com as anotações COCO renomeadas
 > para `instances_train.json` / `instances_val.json`:
 > ```
-> YOLOX/YOLOX/datasets/vehicles/
+> YOLOX/YOLOX/datasets/integra/
 > ├───annotations/
 > │   ├───instances_train.json
 > │   └───instances_val.json
-> ├───train2017/   (imagens de treino)
-> └───val2017/     (imagens de validação)
+> ├───train/   (imagens de treino)
+> └───val/     (imagens de validação)
 > ```
 
 1. Coloque o dataset no caminho acima e os **pesos pré-treinados** em `YOLOX/weights/`
 
 ```bash
 # pesos base do YOLOX-S (usados no fine-tuning via -c)
-wget -P YOLOX/weights \
-  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.pth
+wget -P /weights \
+  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_m.pth
 ```
 
 2. Entre na pasta do YOLOX
@@ -42,34 +42,70 @@ docker compose run --rm yolox /bin/bash
 ```
 
 Os comandos a seguir rodam **dentro** do container (prompt em `/workspace/YOLOX`).
-O dataset está em `datasets/vehicles`, os pesos em `weights/` e as saídas vão para
+O dataset está em `datasets/integra`, os pesos em `weights/` e as saídas vão para
 `YOLOX_outputs/` (todos compartilhados com o host).
 
 5. Rodar o treinamento (fine-tuning a partir do `yolox_s.pth`)
 
 ```bash
 python3 tools/train.py \
-  -f exps/example/custom/yolox_s_vehicles.py \
+  -f exps/example/custom/yolox_s_integra.py \
   -d 1 -b 16 --fp16 -o \
-  -c weights/yolox_s.pth
+  -c weights/yolox_m.pth
 ```
 
 > Flags: `-d 1` = 1 GPU, `-b 16` = batch size, `--fp16` = precisão mista,
 > `-o` = ocupa memória de GPU de forma otimizada, `-c` = checkpoint base.
 
-**Early stopping:** já configurado no Exp (`self.early_stop_patience = 20`) — o treino
-para se o **AP50:95 de validação** não melhorar por 20 avaliações seguidas. Coloque `0`
-para desativar. O melhor modelo é salvo automaticamente em
-`YOLOX_outputs/yolox_s_vehicles/best_ckpt.pth` — use esse na avaliação/inferência.
+**Early stopping:** já configurado no Exp (`self.early_stop_patience = 30`) — o treino
+para se o **AP50:95 de validação** não melhorar por 30 avaliações seguidas. Coloque `0`
+para desativar. O treinamento salva o melhor checkpoint na pasta do experimento. O
+checkpoint movido para uso na avaliação/inferência está em
+`YOLOX_outputs/models/best_ckpt.pth`.
+
+Para testar um checkpoint YOLOX-L no split `test` e calcular métricas por limiar,
+use `tools/eval_confidence.py` com o checkpoint compartilhado com o container. O CSV é salvo em
+`metricas/test_confidence_metrics.csv`. Para gerar o mapa de calor de acurácia e o
+resumo estatístico, execute:
+
+```bash
+python3 metricas/analisar_resultados.py \
+  --csv metricas/test_confidence_metrics.csv
+```
+
+O mapa de calor e o resumo são salvos em `metricas/`. A acurácia de detecção é definida
+como `TP / (TP + FP + FN)`, pois detecção de objetos não tem uma contagem de verdadeiros
+negativos bem definida.
 
 6. Avaliar um checkpoint treinado
 
 ```bash
 python3 tools/eval.py \
-  -f exps/example/custom/yolox_s_vehicles.py \
+  -f exps/example/custom/yolox_l_integra.py \
   -d 1 -b 16 --fp16 \
-  -c YOLOX_outputs/yolox_s_vehicles/best_ckpt.pth
+  -c YOLOX_outputs/models/best_ckpt.pth
 ```
+
+7. Testar no split separado e gerar precisão, recall e F1 por confiança
+
+O experimento `yolox_l_integra.py` está configurado para as 7 classes e para
+`datasets/integra/annotations/instances_test.json`, com imagens em `test/`.
+O avaliador usa IoU 0,50 para associar predições às anotações e salva métricas
+gerais e por classe em `metricas/test_confidence_metrics.csv`.
+
+Abra o PowerShell na pasta `YOLOX`. `YOLOX_outputs` já é compartilhada com o
+container pelo Compose, então não é necessário montar o checkpoint separadamente:
+
+```powershell
+docker compose run --rm yolox `
+  python3 tools/eval_confidence.py `
+  -f exps/example/custom/yolox_l_integra.py `
+  -c YOLOX_outputs/models/best_ckpt.pth --fp16 --batch-size 1
+```
+
+Por padrão, a avaliação calcula as métricas nos limiares de confiança de `0.10`
+a `0.90`, em passos de `0.10`. Use `--thresholds "0.05,0.25,0.50,0.75"` para
+escolher outros limiares. A avaliação COCO de AP/AR também aparece no log.
 
 > **Alternativa sem shell interativo:** `docker compose up yolox` roda direto o comando
 > de treino já configurado no `docker-compose.yml` (precisa dos pesos e do dataset já no lugar).
