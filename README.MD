@@ -49,8 +49,8 @@ O dataset está em `datasets/integra`, os pesos em `weights/` e as saídas vão 
 
 ```bash
 python3 tools/train.py \
-  -f exps/example/custom/yolox_s_integra.py \
-  -d 1 -b 16 --fp16 -o \
+  -f exps/example/custom/yolox_m_integra.py \
+  -d 1 -b 8 --fp16 -o \
   -c weights/yolox_m.pth
 ```
 

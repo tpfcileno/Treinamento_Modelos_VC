@@ -40,19 +40,51 @@ def enable_noise_blur(exp, noise_class_name="ruido", ksize=(31, 31), sigma=0,
                       remove_noise_boxes=True):
     """
     Faz o dataset de treino aplicar o blur em todo pull_item.
+    Com remove_noise_boxes=True, remove as instâncias da classe de ruído do
+    COCO em memória e dos alvos de treino, preservando as caixas para o blur.
     Funciona tanto se exp.dataset já existir (ex.: --cache) quanto se ele
     for criado depois, dentro de get_data_loader.
     """
 
     def _patch(dataset):
         noise_id = list(dataset._classes).index(noise_class_name)
+        noise_boxes_by_index = []
+
+        if remove_noise_boxes:
+            filtered_annotations = []
+            for labels, img_info, resized_info, file_name in dataset.annotations:
+                is_noise = labels[:, 4].astype(int) == noise_id
+                noise_boxes_by_index.append(labels[is_noise].copy())
+                filtered_annotations.append(
+                    (labels[~is_noise].copy(), img_info, resized_info, file_name)
+                )
+            dataset.annotations = filtered_annotations
+
+            noise_category_id = dataset.class_ids[noise_id]
+            coco_dataset = dataset.coco.dataset
+            coco_dataset["annotations"] = [
+                annotation
+                for annotation in coco_dataset["annotations"]
+                if annotation["category_id"] != noise_category_id
+            ]
+            # Keep category metadata so model class indices remain unchanged.
+            dataset.coco.createIndex()
+
         original_pull_item = dataset.pull_item
 
         def pull_item(index):
             img, label, img_info, img_id = original_pull_item(index)
-            img, label = blur_noise_regions(
-                img, label, noise_id, ksize, sigma, remove_noise_boxes
-            )
+            if remove_noise_boxes:
+                labels_to_blur = np.concatenate(
+                    (label, noise_boxes_by_index[index]), axis=0
+                )
+                img, _ = blur_noise_regions(
+                    img, labels_to_blur, noise_id, ksize, sigma
+                )
+            else:
+                img, label = blur_noise_regions(
+                    img, label, noise_id, ksize, sigma, remove_noise_boxes=False
+                )
             return img, label, img_info, img_id
 
         dataset.pull_item = pull_item

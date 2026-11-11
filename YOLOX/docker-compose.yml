@@ -11,7 +11,7 @@ services:
     volumes:
       - ./YOLOX/datasets:/workspace/YOLOX/datasets
       - ./YOLOX/YOLOX_outputs:/workspace/YOLOX/YOLOX_outputs
-      - ./weights:/workspace/YOLOX/weights
+      - ./YOLOX/weights:/workspace/YOLOX/weights
     deploy:
       resources:
         reservations:
