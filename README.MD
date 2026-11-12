@@ -15,12 +15,22 @@
 > └───val/     (imagens de validação)
 > ```
 
-1. Coloque o dataset no caminho acima e os **pesos pré-treinados** em `YOLOX/weights/`
+1. Coloque o dataset no caminho acima. Baixe o peso pré-treinado do YOLOX-L para
+   `YOLOX/YOLOX/weights/` (caminho relativo à raiz deste repositório). As opções abaixo
+   gravam no mesmo local.
+
+```powershell
+# PowerShell no Windows 11 (execute na raiz do repositório)
+New-Item -ItemType Directory -Force -Path ".\YOLOX\YOLOX\weights" | Out-Null
+Invoke-WebRequest `
+  -Uri "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.pth" `
+  -OutFile ".\YOLOX\YOLOX\weights\yolox_l.pth"
+```
 
 ```bash
-# pesos base do YOLOX-S (usados no fine-tuning via -c)
-wget -P /weights \
-  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_m.pth
+# Linux/WSL, executado na raiz do repositório
+wget -P YOLOX/YOLOX/weights \
+  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.pth
 ```
 
 2. Entre na pasta do YOLOX
@@ -50,7 +60,7 @@ O dataset está em `datasets/integra`, os pesos em `weights/` e as saídas vão 
 ```bash
 python3 tools/train.py \
   -f exps/example/custom/yolox_m_integra.py \
-  -d 1 -b 8 --fp16 -o \
+  -d 1 -b 16 --fp16 -o \
   -c weights/yolox_m.pth
 ```
 

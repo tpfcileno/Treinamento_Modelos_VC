@@ -15,6 +15,7 @@ YOLOX/datasets/*
 !YOLOX/datasets/README.md
 YOLOX/YOLOX_outputs
 **/*.pth
+!YOLOX/weights/yolox_l.pth
 **/*.onnx
 **/*.engine
 

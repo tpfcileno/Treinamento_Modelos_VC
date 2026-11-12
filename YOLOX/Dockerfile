@@ -25,6 +25,8 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 COPY YOLOX/ ./
+# Fail the image build if the YOLOX-L fine-tuning weights were not included.
+RUN test -s weights/yolox_l.pth
 # --no-build-isolation: o setup.py importa torch para compilar a op CUDA (FastCOCOEval);
 # sem isso o pip cria um ambiente de build isolado sem torch e a compilacao falha.
 RUN pip install -v -e . --no-build-isolation

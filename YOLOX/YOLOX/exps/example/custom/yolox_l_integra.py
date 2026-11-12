@@ -54,7 +54,7 @@ class Exp(MyExp):
         self.mixup_prob = 1.0         # probabilidade de aplicar MixUp (sobrepõe 2 imagens); 1.0 = sempre
         self.hsv_prob = 1.0           # probabilidade de aplicar jitter de cor HSV (matiz/saturação/brilho)
         self.flip_prob = 0.5          # probabilidade de espelhar a imagem horizontalmente
-        self.degrees = 5           # rotação aleatória máxima (graus) na augmentation afim
+        self.degrees = 5.0         # rotação aleatória máxima (graus) na augmentation afim
         self.translate = 0.1          # translação aleatória máxima (fração da imagem) na augmentation afim
         self.mosaic_scale = (0.5, 1.5)  # faixa de zoom aplicada às imagens do Mosaic (min, max)
         self.enable_mixup = True      # liga/desliga o MixUp
