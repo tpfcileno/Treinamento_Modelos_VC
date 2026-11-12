@@ -1,0 +1,16 @@
+﻿actual\predicted,botas,calca,capacete,luvas,macacao,manga_longa,nao_capacete,nao_luvas,nao_manga_longa,nao_torso_reflexivo,oculos,pessoa,ruido,torso_reflexivo,background
+botas,8,0,0,0,0,0,0,0,0,0,0,0,0,0,312
+calca,0,47,0,0,0,0,0,0,0,0,0,0,0,0,174
+capacete,0,0,38,0,0,0,0,0,0,0,0,0,0,0,234
+luvas,0,0,0,3,0,0,0,0,0,0,0,0,0,0,127
+macacao,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+manga_longa,0,0,0,0,0,10,0,0,0,0,0,0,0,2,206
+nao_capacete,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+nao_luvas,0,0,0,0,0,0,0,2,0,0,0,0,0,0,47
+nao_manga_longa,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4
+nao_torso_reflexivo,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3
+oculos,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+pessoa,0,0,0,0,0,0,0,0,0,0,0,236,0,1,30
+ruido,0,0,0,0,0,0,0,0,0,0,0,6,0,0,40
+torso_reflexivo,0,0,0,0,0,0,0,0,0,1,0,1,0,72,164
+background,0,4,0,0,0,0,0,0,0,0,0,8,0,0,0

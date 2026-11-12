@@ -22,3 +22,9 @@ YOLOX/weights
 
 \MobIA_VC_Utils
 \YOLOX\YOLOX\inference_results
+
+YOLOX\YOLOX\inferences\outputs
+YOLOX\YOLOX\inferences\videos
+
+#videos
+.mp4

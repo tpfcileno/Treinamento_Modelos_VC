@@ -107,6 +107,36 @@ Por padrão, a avaliação calcula as métricas nos limiares de confiança de `0
 a `0.90`, em passos de `0.10`. Use `--thresholds "0.05,0.25,0.50,0.75"` para
 escolher outros limiares. A avaliação COCO de AP/AR também aparece no log.
 
+#### Inferência em vídeo MPG/MP4
+
+Coloque o vídeo `.mpg` ou `.mp4` em `YOLOX/YOLOX/inferences/videos/`. Como o
+container já está em execução e essa pasta não precisa estar montada, copie o
+script e o vídeo para ele e, ao terminar, copie o resultado para o PC. No
+PowerShell, na pasta `YOLOX`, ajuste `$video` para o nome do seu arquivo:
+
+```powershell
+$container = "yolox-inference"
+$video = "video.mpg"
+$inicio = 0
+$output = [System.IO.Path]::GetFileNameWithoutExtension($video) + "_detections.mp4"
+
+New-Item -ItemType Directory -Force .\YOLOX\inferences\outputs | Out-Null
+docker exec $container mkdir -p /workspace/YOLOX/inferences/videos /workspace/YOLOX/inferences/outputs
+docker cp .\YOLOX\inferences\video_analises.py "${container}:/workspace/YOLOX/inferences/video_analises.py"
+docker cp ".\YOLOX\inferences\videos\$video" "${container}:/workspace/YOLOX/inferences/videos/$video"
+
+docker exec $container python3 inferences/video_analises.py "inferences/videos/$video" --start-seconds $inicio
+docker cp "${container}:/workspace/YOLOX/inferences/outputs/$output" ".\YOLOX\inferences\outputs\$output"
+```
+
+Defina `$inicio` em segundos; por exemplo, `60` inicia em 1 minuto. O script
+processa até 30 segundos a partir desse ponto, usa o checkpoint YOLOX-L
+`YOLOX_outputs/yolox_l_integra/best_ckpt.pth` e confiança `0.50`. O resultado
+fica em `YOLOX/YOLOX/inferences/outputs/` no PC. Se os nomes das classes forem
+diferentes dos treinados com esse checkpoint, passe-os na ordem do modelo com
+`--class-names nome1 nome2 ...`. O mapeamento padrão é capacete, torso_reflexivo,
+calca, luvas, botas, pessoa, maos e ruido.
+
 > **Alternativa sem shell interativo:** `docker compose up yolox` roda direto o comando
 > de treino já configurado no `docker-compose.yml` (precisa dos pesos e do dataset já no lugar).
 
