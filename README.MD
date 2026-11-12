@@ -118,24 +118,50 @@ PowerShell, na pasta `YOLOX`, ajuste `$video` para o nome do seu arquivo:
 $container = "yolox-inference"
 $video = "video.mpg"
 $inicio = 0
-$output = [System.IO.Path]::GetFileNameWithoutExtension($video) + "_detections.mp4"
+$output = [System.IO.Path]::GetFileNameWithoutExtension($video) + "_yolox_m_detections.mp4"
 
 New-Item -ItemType Directory -Force .\YOLOX\inferences\outputs | Out-Null
-docker exec $container mkdir -p /workspace/YOLOX/inferences/videos /workspace/YOLOX/inferences/outputs
+docker exec $container mkdir -p /workspace/YOLOX/inferences/videos /workspace/YOLOX/inferences/outputs /workspace/YOLOX/YOLOX_outputs/yolox_m_integra
 docker cp .\YOLOX\inferences\video_analises.py "${container}:/workspace/YOLOX/inferences/video_analises.py"
+docker cp .\YOLOX\YOLOX_outputs\yolox_m_integra\best_ckpt.pth "${container}:/workspace/YOLOX/YOLOX_outputs/yolox_m_integra/best_ckpt.pth"
 docker cp ".\YOLOX\inferences\videos\$video" "${container}:/workspace/YOLOX/inferences/videos/$video"
 
 docker exec $container python3 inferences/video_analises.py "inferences/videos/$video" --start-seconds $inicio
 docker cp "${container}:/workspace/YOLOX/inferences/outputs/$output" ".\YOLOX\inferences\outputs\$output"
 ```
 
-Defina `$inicio` em segundos; por exemplo, `60` inicia em 1 minuto. O script
-processa até 30 segundos a partir desse ponto, usa o checkpoint YOLOX-L
-`YOLOX_outputs/yolox_l_integra/best_ckpt.pth` e confiança `0.50`. O resultado
+Defina `$inicio` em segundos; por exemplo, `60` inicia em 1 minuto. Por padrão,
+o script processa o vídeo até o final. Para limitar a duração, passe
+`--max-duration-seconds 30`; esse limite é contado a partir do ponto inicial.
+O script usa o checkpoint YOLOX-M
+`YOLOX_outputs/yolox_m_integra/best_ckpt.pth`, com as 14 classes na ordem dos IDs
+do COCO e confiança `0.50`. O resultado
 fica em `YOLOX/YOLOX/inferences/outputs/` no PC. Se os nomes das classes forem
 diferentes dos treinados com esse checkpoint, passe-os na ordem do modelo com
-`--class-names nome1 nome2 ...`. O mapeamento padrão é capacete, torso_reflexivo,
-calca, luvas, botas, pessoa, maos e ruido.
+`--class-names nome1 nome2 ...`. A ordem padrão é `botas`, `calca`, `capacete`,
+`luvas`, `macacao`, `manga_longa`, `nao_capacete`, `nao_luvas`,
+`nao_manga_longa`, `nao_torso_reflexivo`, `oculos`, `pessoa`, `ruido`,
+`torso_reflexivo`.
+
+#### Inferência em imagens
+
+Coloque imagens JPG, PNG, BMP ou WEBP em `YOLOX/YOLOX/inferences/images/`.
+Com o Docker Desktop iniciado, execute na raiz do repositório:
+
+```powershell
+python .\YOLOX\YOLOX\inferences\image_analise.py --model m
+```
+
+Escolha `--model s`, `--model m` ou `--model l`. M e L usam por padrão
+`best_ckpt.pth` na pasta correspondente em `YOLOX_outputs`. Se o checkpoint S
+não existir, informe um com `--checkpoint`. Para usar outro checkpoint
+compartilhado com o container, por exemplo:
+`--checkpoint .\YOLOX\YOLOX\YOLOX_outputs\yolox_m_integra\last_epoch_ckpt.pth`.
+As imagens anotadas e o `relatorio_inferencia.txt` ficam em uma pasta de execução
+em `YOLOX/YOLOX/inferences/outputs/<modelo>/`. O relatório inclui tempo por imagem,
+total e média de detecções, tempos médio/mediano/mínimo/máximo e contagem por classe.
+Use `--confidence 0.5` para alterar o limiar; `--class-names nome1 nome2 ...`
+permite informar os nomes das classes na ordem do modelo.
 
 > **Alternativa sem shell interativo:** `docker compose up yolox` roda direto o comando
 > de treino já configurado no `docker-compose.yml` (precisa dos pesos e do dataset já no lugar).

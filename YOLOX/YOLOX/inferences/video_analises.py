@@ -18,27 +18,32 @@ from tools.demo import Predictor
 from yolox.exp import get_exp
 
 
-DEFAULT_EXP_FILE = PROJECT_ROOT / "exps" / "example" / "custom" / "yolox_l_integra.py"
+DEFAULT_EXP_FILE = PROJECT_ROOT / "exps" / "example" / "custom" / "yolox_m_integra.py"
 DEFAULT_CHECKPOINT = (
-    PROJECT_ROOT / "YOLOX_outputs" / "yolox_l_integra" / "best_ckpt.pth"
+    PROJECT_ROOT / "YOLOX_outputs" / "yolox_m_integra" / "best_ckpt.pth"
 )
 CONFIDENCE_THRESHOLD = 0.50
-MAX_DURATION_SECONDS = 30
 DEFAULT_CLASS_NAMES = (
-    "capacete",
-    "torso_reflexivo",
-    "calca",
-    "luvas",
     "botas",
+    "calca",
+    "capacete",
+    "luvas",
+    "macacao",
+    "manga_longa",
+    "nao_capacete",
+    "nao_luvas",
+    "nao_manga_longa",
+    "nao_torso_reflexivo",
+    "oculos",
     "pessoa",
-    "maos",
     "ruido",
+    "torso_reflexivo",
 )
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Apply the best YOLOX-L checkpoint to a video."
+        description="Apply the best YOLOX-M checkpoint to a video."
     )
     parser.add_argument(
         "video",
@@ -48,13 +53,21 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=Path,
-        help="Output .mp4 path (default: inferences/outputs/<input>_detections.mp4).",
+        help=(
+            "Output .mp4 path (default: "
+            "inferences/outputs/<input>_yolox_m_detections.mp4)."
+        ),
     )
     parser.add_argument(
         "--start-seconds",
         type=float,
         default=0,
         help="Video start time in seconds (default: 0).",
+    )
+    parser.add_argument(
+        "--max-duration-seconds",
+        type=float,
+        help="Maximum duration from the start offset (default: until video ends).",
     )
     parser.add_argument(
         "--checkpoint",
@@ -137,7 +150,9 @@ def load_predictor(args):
     return Predictor(model, exp, cls_names=class_names, device=device)
 
 
-def process_video(video_path, output_path, predictor, start_seconds):
+def process_video(
+    video_path, output_path, predictor, start_seconds, max_duration_seconds=None
+):
     capture = cv2.VideoCapture(str(video_path))
     if not capture.isOpened():
         raise RuntimeError(f"Could not open input video: {video_path}")
@@ -163,9 +178,15 @@ def process_video(video_path, output_path, predictor, start_seconds):
                 f"Could not read a frame at {start_seconds:g} seconds in: {video_path}"
             )
 
-        frame_limit = int(fps * MAX_DURATION_SECONDS)
-        if frame_limit < 1:
-            raise ValueError(f"Invalid frame rate reported for: {video_path}")
+        frame_limit = None
+        if max_duration_seconds is not None:
+            frame_limit = math.floor(fps * max_duration_seconds)
+            if frame_limit < 1:
+                minimum_duration = 1 / fps
+                raise ValueError(
+                    "--max-duration-seconds must be at least "
+                    f"{minimum_duration:.3f} seconds for this video."
+                )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         writer = cv2.VideoWriter(
@@ -178,7 +199,11 @@ def process_video(video_path, output_path, predictor, start_seconds):
             raise RuntimeError(f"Could not create output video: {output_path}")
 
         frames = 0
-        while success and frame is not None and frames < frame_limit:
+        while (
+            success
+            and frame is not None
+            and (frame_limit is None or frames < frame_limit)
+        ):
             outputs, image_info = predictor.inference(frame)
             result_frame = predictor.visual(
                 outputs[0], image_info, CONFIDENCE_THRESHOLD
@@ -189,10 +214,16 @@ def process_video(video_path, output_path, predictor, start_seconds):
                 logger.info("Processed {} frames", frames)
             success, frame = capture.read()
 
+        duration_note = (
+            "until video end"
+            if max_duration_seconds is None
+            else "maximum {:.2f} seconds".format(max_duration_seconds)
+        )
         logger.info(
-            "Processed {} frames (up to {} seconds); output saved to {}",
+            "Processed {} frames ({:.2f} seconds, {}); output saved to {}",
             frames,
-            MAX_DURATION_SECONDS,
+            frames / fps,
+            duration_note,
             output_path,
         )
         completed = True
@@ -208,6 +239,11 @@ def main():
     args = parse_args()
     if not math.isfinite(args.start_seconds) or args.start_seconds < 0:
         raise ValueError("--start-seconds must be a finite, non-negative number.")
+    if args.max_duration_seconds is not None and (
+        not math.isfinite(args.max_duration_seconds)
+        or args.max_duration_seconds <= 0
+    ):
+        raise ValueError("--max-duration-seconds must be a finite, positive number.")
 
     video_path = args.video.resolve()
     if video_path.suffix.lower() not in {".mpg", ".mpeg", ".mp4"}:
@@ -221,7 +257,7 @@ def main():
         else PROJECT_ROOT
         / "inferences"
         / "outputs"
-        / f"{video_path.stem}_detections.mp4"
+        / f"{video_path.stem}_yolox_m_detections.mp4"
     )
     if output_path.suffix.lower() != ".mp4":
         raise ValueError("Output video must use the .mp4 extension.")
@@ -231,7 +267,13 @@ def main():
         raise FileExistsError(f"Output already exists: {output_path}")
 
     predictor = load_predictor(args)
-    process_video(video_path, output_path, predictor, args.start_seconds)
+    process_video(
+        video_path,
+        output_path,
+        predictor,
+        args.start_seconds,
+        args.max_duration_seconds,
+    )
 
 
 if __name__ == "__main__":

@@ -27,4 +27,4 @@ YOLOX\YOLOX\inferences\outputs
 YOLOX\YOLOX\inferences\videos
 
 #videos
-.mp4
+*.mp4
