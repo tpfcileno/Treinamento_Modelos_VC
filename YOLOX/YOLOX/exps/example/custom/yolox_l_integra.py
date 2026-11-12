@@ -19,7 +19,7 @@ class Exp(MyExp):
 
         # As categorias nos JSONs COCO sao: capacete, botas, pessoa,
         # torso_reflexivo, calca, luvas e manga_longa.
-        self.num_classes = 8
+        self.num_classes = 14
 
         # ---------------- dataset config ---------------- #
         # Layout esperado dentro de data_dir:
@@ -46,17 +46,17 @@ class Exp(MyExp):
 
         # early stopping: para o treino apos N avaliacoes sem melhora do AP50:95 de val.
         # Com eval_interval=1, N equivale a epocas. 0 desativa.
-        self.early_stop_patience = 30
+        self.early_stop_patience = 45
         self.early_stop_min_delta = 0.0  # ganho minimo de AP para contar como melhora
 
         self.multiscale_range = 5     # variação de escala multi-resolução: input_size +/- 5*32 px por iteração
         self.mosaic_prob = 1.0        # probabilidade de aplicar augmentation Mosaic (junta 4 imagens); 1.0 = sempre
         self.mixup_prob = 1.0         # probabilidade de aplicar MixUp (sobrepõe 2 imagens); 1.0 = sempre
         self.hsv_prob = 1.0           # probabilidade de aplicar jitter de cor HSV (matiz/saturação/brilho)
-        self.flip_prob = 0.0          # probabilidade de espelhar a imagem horizontalmente
-        self.degrees = 10.0           # rotação aleatória máxima (graus) na augmentation afim
+        self.flip_prob = 0.5          # probabilidade de espelhar a imagem horizontalmente
+        self.degrees = 5           # rotação aleatória máxima (graus) na augmentation afim
         self.translate = 0.1          # translação aleatória máxima (fração da imagem) na augmentation afim
-        self.mosaic_scale = (0.1, 2.0)  # faixa de zoom aplicada às imagens do Mosaic (min, max)
+        self.mosaic_scale = (0.5, 1.5)  # faixa de zoom aplicada às imagens do Mosaic (min, max)
         self.enable_mixup = True      # liga/desliga o MixUp
         self.mixup_scale = (0.5, 1.5)   # faixa de escala usada no MixUp (min, max)
         self.shear = 2.0              # cisalhamento (shear) aleatório máximo (graus) na augmentation afim
@@ -71,7 +71,7 @@ class Exp(MyExp):
         self.momentum = 0.9           # momentum do otimizador SGD
         self.save_history_ckpt = True   # salva checkpoint de cada época (não só o último/melhor)
         self.test_conf = 0.01         # limiar de confiança mínimo para considerar uma detecção na avaliação
-        self.nmsthre = 0.50           # limiar de IoU do NMS (suprime caixas sobrepostas acima desse valor)
+        self.nmsthre = 0.65           # limiar de IoU do NMS (suprime caixas sobrepostas acima desse valor)
 
         # input/test size (multiplos de 32)
         self.input_size = (640, 640)  # resolução (altura, largura) das imagens no treino

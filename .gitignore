@@ -3,6 +3,8 @@
 *.jpg
 *.png
 
+#models
+*.onnx
 
 #pesos
 *.pth
@@ -28,3 +30,7 @@ YOLOX\YOLOX\inferences\videos
 
 #videos
 *.mp4
+
+#virtual environments
+venv/
+.venv/
