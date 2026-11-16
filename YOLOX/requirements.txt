@@ -1,0 +1,16 @@
+# Dependencias de treino/avaliacao do YOLOX.
+# torch/torchvision ja vem na imagem base (pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel).
+# As travas abaixo garantem compatibilidade com esse torch (compilado contra NumPy 1.x).
+torch>=1.7
+torchvision
+numpy>=1.21,<2
+opencv-python-headless>=4.5,<4.12
+loguru
+tqdm
+thop
+ninja
+tabulate
+psutil
+tensorboard
+# pycocotools corresponds to https://github.com/ppwwyyxx/cocoapi
+pycocotools>=2.0.2

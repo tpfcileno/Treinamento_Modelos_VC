@@ -1,0 +1,5 @@
+# Scripts e arquivos lidos no Linux/container precisam de LF (CRLF quebra o bash).
+*.sh               text eol=lf
+Dockerfile         text eol=lf
+*.yml              text eol=lf
+requirements*.txt  text eol=lf

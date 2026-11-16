@@ -1,21 +1,22 @@
 # Git
-**/.git
-**/.github
+.git
+.github
 
 # Python
 **/__pycache__
 **/*.pyc
 **/*.pyo
 **/*.egg-info
-**/build
-**/dist
+build
+dist
+.venv
+venv
 
-# Dados e saidas (montar como volume em runtime, nao copiar para a imagem)
-YOLOX/datasets/*
-!YOLOX/datasets/README.md
-YOLOX/YOLOX_outputs
+# Dados, pesos e saidas: montados como volume em runtime, nao copiados para a imagem
+datasets
+weights
+YOLOX_outputs
 **/*.pth
-!YOLOX/weights/yolox_l.pth
 **/*.onnx
 **/*.engine
 

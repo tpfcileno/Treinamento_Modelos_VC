@@ -4,14 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     image: yolox-tpf:latest
-    container_name: yolox
     shm_size: "8gb"
     stdin_open: true
     tty: true
     volumes:
-      - ./YOLOX/datasets:/workspace/YOLOX/datasets
-      - ./YOLOX/YOLOX_outputs:/workspace/YOLOX/YOLOX_outputs
-      - ./YOLOX/weights:/workspace/YOLOX/weights
+      - ./datasets:/workspace/YOLOX/datasets
+      - ./weights:/workspace/YOLOX/weights
+      - ./YOLOX_outputs:/workspace/YOLOX/YOLOX_outputs
     deploy:
       resources:
         reservations:
@@ -19,8 +18,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    # `docker compose up yolox` roda o treino abaixo. Sobrescreva via variaveis de ambiente
+    # (ou arquivo .env), ex.: EXP=exps/example/custom/yolox_l_integra.py CKPT=weights/yolox_l.pth
     command: >
       python3 tools/train.py
-      -f exps/example/custom/yolox_s_vehicles.py
-      -d 1 -b 16 --fp16 -o
-      -c weights/yolox_s.pth
+      -f ${EXP:-exps/example/custom/yolox_m_integra.py}
+      -d ${DEVICES:-1} -b ${BATCH:-16} --fp16 -o
+      -c ${CKPT:-weights/yolox_m.pth}

@@ -1,36 +1,40 @@
-#images
-*.jpeg
-*.jpg
-*.png
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+*.so
 
-#models
-*.onnx
-
-#pesos
-*.pth
-
-#annotations
-*.txt
-*.xml
-*.out*
-
-*.pyc
-
-#dataset yolox
-YOLOX/YOLOX/datasets/*
-YOLOX/weights
-
-*.h5
-
-\MobIA_VC_Utils
-\YOLOX\YOLOX\inference_results
-
-YOLOX\YOLOX\inferences\outputs
-YOLOX\YOLOX\inferences\videos
-
-#videos
-*.mp4
-
-#virtual environments
+# Ambientes virtuais
 venv/
 .venv/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Modelos / pesos
+*.pth
+*.pt
+*.onnx
+*.engine
+*.h5
+
+# Imagem / Video
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.mpg
+
+# YOLOX
+YOLOX/datasets/
+YOLOX/weights/
+
+# Os resultados de metricas (CSV / predictions.json) podem ser versionados.
+YOLOX/YOLOX_outputs/**/*.txt
+YOLOX/YOLOX_outputs/**/events.out.tfevents*
+YOLOX/YOLOX_outputs/**/tensorboard/

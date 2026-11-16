@@ -1,358 +1,207 @@
-# Para executar:
+# Treinamento de Modelos de Visão Computacional — Integra360
 
-#### YOLOX
+Repositório de treino de detectores de objetos para o Integra360. Cada modelo fica em
+uma pasta própria e autocontida (Dockerfile, `docker-compose.yml`, dependências e código).
 
-> **Layout do dataset (YOLOX):** o Exp `yolox_s_integra.py` espera o dataset em
-> `YOLOX/YOLOX/datasets/integra/` (no host), montado em
-> `/workspace/YOLOX/datasets/integra` no container, com as anotações COCO renomeadas
-> para `instances_train.json` / `instances_val.json`:
-> ```
-> YOLOX/YOLOX/datasets/integra/
-> ├───annotations/
-> │   ├───instances_train.json
-> │   └───instances_val.json
-> ├───train/   (imagens de treino)
-> └───val/     (imagens de validação)
-> ```
+| Pasta | Modelo |
+|---|---|
+| [`YOLOX/`](YOLOX/) | YOLOX (S / M / L) — fork do [Megvii YOLOX 0.3.0](https://github.com/Megvii-BaseDetection/YOLOX) |
 
-1. Coloque o dataset no caminho acima. Baixe o peso pré-treinado do YOLOX-L para
-   `YOLOX/YOLOX/weights/` (caminho relativo à raiz deste repositório). As opções abaixo
-   gravam no mesmo local.
+---
 
-```powershell
-# PowerShell no Windows 11 (execute na raiz do repositório)
-New-Item -ItemType Directory -Force -Path ".\YOLOX\YOLOX\weights" | Out-Null
-Invoke-WebRequest `
-  -Uri "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.pth" `
-  -OutFile ".\YOLOX\YOLOX\weights\yolox_l.pth"
+## YOLOX
+
+### Pré-requisitos (máquina de treino Linux)
+
+- GPU NVIDIA com driver instalado (`nvidia-smi` funcionando)
+- Docker + Docker Compose v2
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+Teste rápido: `docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi`
+
+### Estrutura
+
 ```
+YOLOX/
+├── Dockerfile, docker-compose.yml
+├── requirements.txt            # dependências de treino (versões travadas p/ a imagem)
+├── requirements-export.txt     # opcional: export ONNX
+├── scripts/download_weights.sh # baixa os pesos pré-treinados no COCO
+├── exps/example/custom/        # experimentos Integra: yolox_{s,m,l}_integra.py
+├── tools/                      # train.py, eval.py, eval_save.py, demo/export
+├── analises/                   # métricas por confiança, tabelas PNG e dashboard
+├── yolox/                      # biblioteca YOLOX
+├── tests/                      # executados durante o docker build
+├── datasets/                   # (fora do git) dataset no formato COCO
+├── weights/                    # (fora do git) pesos pré-treinados
+└── YOLOX_outputs/              # saídas de treino/avaliação
+```
+
+`datasets/`, `weights/` e `YOLOX_outputs/` são montados como volume no container, ou
+seja, tudo que o treino gera fica salvo no host.
+
+### 1. Clonar e preparar o dataset
 
 ```bash
-# Linux/WSL, executado na raiz do repositório
-wget -P YOLOX/YOLOX/weights \
-  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.pth
+git clone <url-do-repo> && cd Treinamento_Modelos_VC/YOLOX
 ```
 
-2. Entre na pasta do YOLOX
+Copie o dataset (formato COCO) para `YOLOX/datasets/integra/`, com as anotações
+renomeadas assim:
+
+```
+datasets/integra/
+├── annotations/
+│   ├── instances_train.json
+│   ├── instances_val.json
+│   └── instances_test.json   (opcional: usado com --test e nas análises)
+├── train/   (imagens de treino)
+├── val/     (imagens de validação)
+└── test/    (imagens de teste)
+```
+
+O dataset não vai pelo git; transfira com `scp`/`rsync`, por exemplo:
+`rsync -avP datasets/integra/ usuario@maquina:~/Treinamento_Modelos_VC/YOLOX/datasets/integra/`
+
+### 2. Baixar os pesos pré-treinados
+
+Pesos oficiais do YOLOX treinados no COCO, usados como ponto de partida do fine-tuning:
 
 ```bash
-cd YOLOX
+bash scripts/download_weights.sh        # baixa yolox_s, yolox_m e yolox_l para weights/
+bash scripts/download_weights.sh l      # ou só os escolhidos (nano tiny s m l x)
 ```
 
-3. Buildar o container
+### 3. Build da imagem
 
 ```bash
 docker compose build yolox
 ```
 
-4. Abrir um shell interativo dentro do container
+O build roda os testes (`tests/`) no final; se algum falhar, a imagem não é gerada.
+Por padrão o Docker esconde a saída da etapa que falhou; para ver o motivo completo:
 
 ```bash
-docker compose run --rm yolox /bin/bash
+docker compose build --progress plain yolox
 ```
 
-Os comandos a seguir rodam **dentro** do container (prompt em `/workspace/YOLOX`).
-O dataset está em `datasets/integra`, os pesos em `weights/` e as saídas vão para
-`YOLOX_outputs/` (todos compartilhados com o host).
+> A imagem final tem cerca de 12 GB. Garanta espaço livre no disco do Docker antes do
+> build (`docker system df`). Se o build cair com `failed to solve: ... EOF`, normalmente
+> o disco do Docker encheu.
 
-5. Rodar o treinamento (fine-tuning a partir do `yolox_s.pth`)
+### 4. Treinar
+
+**Direto pelo compose** — usa o comando definido no `docker-compose.yml`, configurável
+por variáveis de ambiente (ou por um arquivo `.env` na pasta `YOLOX/`):
+
+| Variável | Padrão |
+|---|---|
+| `EXP` | `exps/example/custom/yolox_m_integra.py` |
+| `CKPT` | `weights/yolox_m.pth` |
+| `BATCH` | `16` |
+| `DEVICES` | `1` (nº de GPUs) |
 
 ```bash
+docker compose up yolox                                   # YOLOX-M com os padrões
+
+EXP=exps/example/custom/yolox_l_integra.py \
+CKPT=weights/yolox_l.pth BATCH=8 \
+docker compose up yolox                                   # YOLOX-L, batch 8
+```
+
+**Ou por shell interativo** (todos os comandos abaixo rodam em `/workspace/YOLOX`):
+
+```bash
+docker compose run --rm yolox bash
+
 python3 tools/train.py \
   -f exps/example/custom/yolox_m_integra.py \
   -d 1 -b 16 --fp16 -o \
   -c weights/yolox_m.pth
 ```
 
-> Flags: `-d 1` = 1 GPU, `-b 16` = batch size, `--fp16` = precisão mista,
-> `-o` = ocupa memória de GPU de forma otimizada, `-c` = checkpoint base.
+> Flags: `-d` nº de GPUs, `-b` batch size total, `--fp16` precisão mista,
+> `-o` reserva a memória da GPU antes, `-c` checkpoint inicial,
+> `--cache` guarda as imagens em RAM, `--resume` retoma de `latest_ckpt.pth`.
+> Se faltar memória de GPU, reduza `-b` (ex.: 8 para o L).
 
-**Early stopping:** já configurado no Exp (`self.early_stop_patience = 30`) — o treino
-para se o **AP50:95 de validação** não melhorar por 30 avaliações seguidas. Coloque `0`
-para desativar. O treinamento salva o melhor checkpoint na pasta do experimento. O
-checkpoint movido para uso na avaliação/inferência está em
-`YOLOX_outputs/models/best_ckpt.pth`.
+Saídas em `YOLOX_outputs/<nome_do_exp>/`: `best_ckpt.pth` (melhor AP50:95 de validação),
+`last_epoch_ckpt.pth`, `epoch_N_ckpt.pth` (se `save_history_ckpt = True`),
+`train_log.txt` e os logs do tensorboard.
 
-Para testar um checkpoint YOLOX-L no split `test` e calcular métricas por limiar,
-use `tools/eval_confidence.py` com o checkpoint compartilhado com o container. O CSV é salvo em
-`metricas/test_confidence_metrics.csv`. Para gerar o mapa de calor de acurácia e o
-resumo estatístico, execute:
+Acompanhar pelo tensorboard (no host):
+`tensorboard --logdir YOLOX/YOLOX_outputs`
+
+#### Configuração dos experimentos
+
+Os hiperparâmetros ficam em `exps/example/custom/yolox_{s,m,l}_integra.py`. Pontos
+específicos deste projeto:
+
+- **`num_classes = 14`**: precisa bater com as categorias do JSON. Se divergir, o treino
+  falha logo no início com uma mensagem indicando as categorias encontradas.
+- **Classe `ruido`** (`noise_class_name = "ruido"`): as caixas dessa classe **não** são
+  alvo de treino nem GT de avaliação. No treino, a região é borrada (Gaussian blur) para o
+  modelo não aprender com o conteúdo dela; na avaliação a imagem fica intacta. A classe
+  continua existindo na saída do modelo (índices inalterados), mas nunca é aprendida.
+  Use `noise_class_name = None` para desativar. Implementação em
+  `yolox/data/datasets/coco_noise.py`.
+- **Early stopping** (`early_stop_patience`): para o treino após N avaliações seguidas
+  sem melhora do AP50:95 de validação (`0` desativa; `early_stop_min_delta` define o
+  ganho mínimo).
+
+### 5. Avaliar um checkpoint
 
 ```bash
-python3 metricas/analisar_resultados.py \
-  --csv metricas/test_confidence_metrics.csv
-```
-
-O mapa de calor e o resumo são salvos em `metricas/`. A acurácia de detecção é definida
-como `TP / (TP + FP + FN)`, pois detecção de objetos não tem uma contagem de verdadeiros
-negativos bem definida.
-
-6. Avaliar um checkpoint treinado
-
-```bash
+# AP/AR COCO no split de validação
 python3 tools/eval.py \
-  -f exps/example/custom/yolox_l_integra.py \
-  -d 1 -b 16 --fp16 \
-  -c YOLOX_outputs/models/best_ckpt.pth
+  -f exps/example/custom/yolox_m_integra.py \
+  -c YOLOX_outputs/yolox_m_integra/best_ckpt.pth \
+  -b 16 -d 1 --fp16
+
+# no split de teste (instances_test.json), salvando as predições
+python3 tools/eval_save.py \
+  -f exps/example/custom/yolox_m_integra.py \
+  -c YOLOX_outputs/yolox_m_integra/best_ckpt.pth \
+  -b 16 -d 1 --fp16 --test
 ```
 
-7. Testar no split separado e gerar precisão, recall e F1 por confiança
+O `eval_save.py` grava `YOLOX_outputs/<exp>/predictions.json` e imprime AP/AR por classe.
 
-O experimento `yolox_l_integra.py` está configurado para as 7 classes e para
-`datasets/integra/annotations/instances_test.json`, com imagens em `test/`.
-O avaliador usa IoU 0,50 para associar predições às anotações e salva métricas
-gerais e por classe em `metricas/test_confidence_metrics.csv`.
+### 6. Análises de métricas
 
-Abra o PowerShell na pasta `YOLOX`. `YOLOX_outputs` já é compartilhada com o
-container pelo Compose, então não é necessário montar o checkpoint separadamente:
-
-```powershell
-docker compose run --rm yolox `
-  python3 tools/eval_confidence.py `
-  -f exps/example/custom/yolox_l_integra.py `
-  -c YOLOX_outputs/models/best_ckpt.pth --fp16 --batch-size 1
-```
-
-Por padrão, a avaliação calcula as métricas nos limiares de confiança de `0.10`
-a `0.90`, em passos de `0.10`. Use `--thresholds "0.05,0.25,0.50,0.75"` para
-escolher outros limiares. A avaliação COCO de AP/AR também aparece no log.
-
-#### Inferência em vídeo MPG/MP4
-
-Coloque o vídeo `.mpg` ou `.mp4` em `YOLOX/YOLOX/inferences/videos/`. Como o
-container já está em execução e essa pasta não precisa estar montada, copie o
-script e o vídeo para ele e, ao terminar, copie o resultado para o PC. No
-PowerShell, na pasta `YOLOX`, ajuste `$video` para o nome do seu arquivo:
-
-```powershell
-$container = "yolox-inference"
-$video = "video.mpg"
-$inicio = 0
-$output = [System.IO.Path]::GetFileNameWithoutExtension($video) + "_yolox_m_detections.mp4"
-
-New-Item -ItemType Directory -Force .\YOLOX\inferences\outputs | Out-Null
-docker exec $container mkdir -p /workspace/YOLOX/inferences/videos /workspace/YOLOX/inferences/outputs /workspace/YOLOX/YOLOX_outputs/yolox_m_integra
-docker cp .\YOLOX\inferences\video_analises.py "${container}:/workspace/YOLOX/inferences/video_analises.py"
-docker cp .\YOLOX\YOLOX_outputs\yolox_m_integra\best_ckpt.pth "${container}:/workspace/YOLOX/YOLOX_outputs/yolox_m_integra/best_ckpt.pth"
-docker cp ".\YOLOX\inferences\videos\$video" "${container}:/workspace/YOLOX/inferences/videos/$video"
-
-docker exec $container python3 inferences/video_analises.py "inferences/videos/$video" --start-seconds $inicio
-docker cp "${container}:/workspace/YOLOX/inferences/outputs/$output" ".\YOLOX\inferences\outputs\$output"
-```
-
-Defina `$inicio` em segundos; por exemplo, `60` inicia em 1 minuto. Por padrão,
-o script processa o vídeo até o final. Para limitar a duração, passe
-`--max-duration-seconds 30`; esse limite é contado a partir do ponto inicial.
-O script usa o checkpoint YOLOX-M
-`YOLOX_outputs/yolox_m_integra/best_ckpt.pth`, com as 14 classes na ordem dos IDs
-do COCO e confiança `0.50`. O resultado
-fica em `YOLOX/YOLOX/inferences/outputs/` no PC. Se os nomes das classes forem
-diferentes dos treinados com esse checkpoint, passe-os na ordem do modelo com
-`--class-names nome1 nome2 ...`. A ordem padrão é `botas`, `calca`, `capacete`,
-`luvas`, `macacao`, `manga_longa`, `nao_capacete`, `nao_luvas`,
-`nao_manga_longa`, `nao_torso_reflexivo`, `oculos`, `pessoa`, `ruido`,
-`torso_reflexivo`.
-
-#### Inferência em imagens
-
-Coloque imagens JPG, PNG, BMP ou WEBP em `YOLOX/YOLOX/inferences/images/`.
-Com o Docker Desktop iniciado, execute na raiz do repositório:
-
-```powershell
-python .\YOLOX\YOLOX\inferences\image_analise.py --model m
-```
-
-Escolha `--model s`, `--model m` ou `--model l`. M e L usam por padrão
-`best_ckpt.pth` na pasta correspondente em `YOLOX_outputs`. Se o checkpoint S
-não existir, informe um com `--checkpoint`. Para usar outro checkpoint
-compartilhado com o container, por exemplo:
-`--checkpoint .\YOLOX\YOLOX\YOLOX_outputs\yolox_m_integra\last_epoch_ckpt.pth`.
-As imagens anotadas e o `relatorio_inferencia.txt` ficam em uma pasta de execução
-em `YOLOX/YOLOX/inferences/outputs/<modelo>/`. O relatório inclui tempo por imagem,
-total e média de detecções, tempos médio/mediano/mínimo/máximo e contagem por classe.
-Use `--confidence 0.5` para alterar o limiar; `--class-names nome1 nome2 ...`
-permite informar os nomes das classes na ordem do modelo.
-
-> **Alternativa sem shell interativo:** `docker compose up yolox` roda direto o comando
-> de treino já configurado no `docker-compose.yml` (precisa dos pesos e do dataset já no lugar).
-
-#### DETR
-
-> **Layout do dataset (DETR):** diferente do YOLOX, o DETR usa o export padrão do
-> Roboflow, com as anotações na **raiz** do dataset (não em uma pasta `annotations/`):
-> ```
-> MobIA 5.4.coco
-> ├───train/            (imagens de treino)
-> ├───valid/            (imagens de validação)
-> ├───train_coco.json   (anotações de treino)
-> └───valid_coco.json   (anotações de validação)
-> ```
-
-1. Entre na pasta específica do DETR
+A partir do `predictions.json`, rodando de dentro de `YOLOX/` (no container ou no host
+com `numpy`, `Pillow` e `pycocotools`):
 
 ```bash
-cd DETR
+# precisão / recall / F1 / AP por classe e por limiar de confiança + matrizes de confusão
+python3 analises/metrics_inferences.py \
+  --predictions YOLOX_outputs/yolox_m_integra/predictions.json \
+  --annotations datasets/integra/annotations/instances_test.json \
+  --output-dir  YOLOX_outputs/yolox_m_integra/metrics
+
+# converte os CSVs gerados em tabelas PNG
+python3 analises/csv_tables_to_png.py --input-dir YOLOX_outputs/yolox_m_integra/metrics
+
+# dashboard web local (http://127.0.0.1:8765)
+python3 analises/dashboard/run.py --input-dir YOLOX_outputs/yolox_m_integra/metrics
 ```
 
-2. Configure o caminho do dataset
+> Essas análises usam o JSON de anotações original, então a classe `ruido` aparece
+> com GT e sem predições — desconsidere essa linha.
 
-O `docker compose` lê automaticamente um arquivo `.env`. Crie-o a partir do exemplo
-e ajuste `DATASET_PATH` para a raiz do seu dataset:
+### 7. Exportar para ONNX (opcional)
 
 ```bash
-cp .env_example .env
+pip install -r requirements-export.txt
+python3 tools/export_onnx.py \
+  -f exps/example/custom/yolox_m_integra.py \
+  -c YOLOX_outputs/yolox_m_integra/best_ckpt.pth \
+  --output-name YOLOX_outputs/yolox_m_integra/yolox_m_integra.onnx
 ```
 
-3. Buildar o container específico do DETR
+### Observações
 
-```bash
-docker build -t detr-tpf:latest .
-```
-
-4. Abrir um shell interativo dentro do container
-
-```bash
-docker compose run --rm detr /bin/bash
-```
-
-Os comandos a seguir rodam **dentro** do container (prompt em `/workspace/detr`).
-O dataset está montado em `/workspace/detr/coco`, e `weights/` e `outputs/` são
-compartilhados com o host (pastas `DETR/weights` e `DETR/outputs`).
-
-5. Preparar os pesos pré-treinados para fine-tuning
-
-Baixa o DETR pré-treinado no COCO e remove a cabeça de classificação (91 → 6 classes):
-
-```bash
-python prepare_finetune_weights.py            # ResNet-50 → weights/detr-r50_finetune.pth
-# ou para o backbone maior:
-python prepare_finetune_weights.py --model r101   # → weights/detr-r101_finetune.pth
-```
-
-6. Rodar o treinamento (fine-tuning)
-
-```bash
-python main.py \
-  --coco_path /workspace/detr/coco \
-  --output_dir /workspace/detr/outputs \
-  --resume weights/detr-r50_finetune.pth \
-  --batch_size 2 --epochs 150 --lr_drop 100 --num_workers 4 \
-  --early_stop_patience 20
-```
-
-> Para o **R101**, use `--resume weights/detr-r101_finetune.pth --backbone resnet101`
-> (e considere `--batch_size 1` se faltar memória de GPU).
-
-**Early stopping:** `--early_stop_patience 20` para o treino se o **mAP de validação**
-não melhorar por 20 épocas seguidas (use `0` para desativar). O melhor modelo é salvo
-em `outputs/checkpoint_best.pth` — use esse arquivo na avaliação, não o `checkpoint.pth`
-(que é sempre o da última época). Ajuste fino com `--early_stop_min_delta` (padrão `0.001`).
-
-Os checkpoints e logs ficam em `DETR/outputs/` (no host).
-
-7. Avaliar um checkpoint treinado
-
-```bash
-python main.py --eval --no_aux_loss \
-  --coco_path /workspace/detr/coco \
-  --resume outputs/checkpoint_best.pth --batch_size 2
-```
-
-> **Alternativa sem shell interativo:** se preferir, o `docker compose up detr` roda
-> direto o comando de treino já configurado no `docker-compose.yml` (passos 5 e 6
-> juntos não — os pesos ainda precisam ser gerados uma vez com o passo 5).
-
-#### R-CNN
-
-1. Entre na pasta específica do R-CNN
-
-```bash
-cd .\R-CNN\  
-```
-
-2. Buildar o container específico do R-CNN
-```bash
-docker compose build rcnn
-```
-
-3. Rodar o treinamento
-```bash
-docker compose up rcnn
-```
-
-#### MASK R-CNN
-
-Implementação [matterport/Mask_RCNN](https://github.com/matterport/Mask_RCNN)
-(TensorFlow 1.x / Keras), em `M-RCNN/Mask_RCNN/`.
-
-> **Layout do dataset (Mask R-CNN):** mesmo formato COCO do DETR — anotações na
-> **raiz** do dataset, com `segmentation` (polígonos ou RLE), pois o Mask R-CNN
-> treina máscaras de instância:
-> ```
-> MobIA 5.4.coco
-> ├───train/            (imagens de treino)
-> ├───valid/            (imagens de validação)
-> ├───train_coco.json   (anotações de treino)
-> └───valid_coco.json   (anotações de validação)
-> ```
-
-1. Entre na pasta específica do Mask R-CNN
-
-```bash
-cd M-RCNN
-```
-
-2. Configure o caminho do dataset
-
-O `docker compose` lê automaticamente um arquivo `.env`. Crie-o a partir do exemplo
-e ajuste `DATASET_PATH` para a raiz do seu dataset no host:
-
-```bash
-cp .env_example .env
-```
-
-3. Buildar o container específico do Mask R-CNN
-
-A imagem parte do container **NGC TF1** da NVIDIA (TF 1.15 com CUDA 11), necessário
-para rodar TensorFlow 1.x em GPUs Ampere+ (ex.: RTX 3060). Requer Docker +
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
-
-```bash
-docker compose build mrcnn
-```
-
-4. Abrir um shell interativo dentro do container
-
-```bash
-docker compose run --rm mrcnn /bin/bash
-```
-
-Os comandos a seguir rodam **dentro** do container (prompt em `/workspace/Mask_RCNN`).
-O dataset está montado em `/workspace/Dataset` (`DATASET_PATH` já aponta para lá),
-e o repositório é compartilhado com o host — então os pesos baixados e os
-checkpoints em `logs/` ficam salvos na sua máquina.
-
-5. Rodar o treinamento (fine-tuning a partir dos pesos de COCO)
-
-```bash
-python samples/custom/custom.py train --weights=coco \
-  --epochs 100 --patience 20 --min-delta 0.001 --batch 2
-```
-
-> Na primeira vez, `--weights=coco` baixa `mask_rcnn_coco.h5` automaticamente.
-> Use `--weights=imagenet` para treinar do zero ou `--weights=last` para continuar
-> o último treino. O número de classes é lido automaticamente do `train_coco.json`.
-
-**Early stopping:** ao fim de cada época o script mede o **mAP@0.5:0.95 de validação**
-(via pycocotools, mesma métrica do DETR/YOLOX) e para o treino se não melhorar por
-`--patience` épocas seguidas (use `0` para desativar; ajuste fino com `--min-delta`).
-O melhor modelo é salvo em `logs/<run>/best_custom.h5` — use esse na
-avaliação/inferência.
-
-O schedule (épocas, learning rate, camadas treinadas via `--layers heads|all|3+|4+|5+`)
-e a configuração (`NUM_CLASSES`, `IMAGES_PER_GPU`, `STEPS_PER_EPOCH`) ficam em
-`samples/custom/custom.py`. Reduza `IMAGES_PER_GPU` para 1 se faltar memória de GPU.
-Os checkpoints ficam em `M-RCNN/Mask_RCNN/logs/` (no host).
-
-> **Alternativa sem shell interativo:** `docker compose up mrcnn` roda direto o
-> comando de treino já configurado no `docker-compose.yml` (com `--weights=coco`).
+- Arquivos criados pelo container nos volumes pertencem ao `root` no host Linux. Para
+  recuperar a posse: `sudo chown -R $USER YOLOX/YOLOX_outputs`.
+- `shm_size: 8gb` no compose é necessário para o DataLoader com vários workers; se o
+  host tiver pouca RAM, reduza junto com `data_num_workers` no exp.

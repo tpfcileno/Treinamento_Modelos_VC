@@ -1,0 +1,4 @@
+# Opcional: necessario apenas para tools/export_onnx.py.
+# Instale dentro do container com: pip install -r requirements-export.txt
+onnx>=1.13.0
+onnxsim>=0.4.33
